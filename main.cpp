@@ -106,8 +106,6 @@ struct once_per_day_strategy : strategy
 			rm_fn(snapshot);
 		}
 
-		LOG_S(error,LOG_C) << to_iso_string(slot);
-
 		if( max_snapshots>0 && slots.size()>max_snapshots )
 		{
 			auto i(slots.begin());
