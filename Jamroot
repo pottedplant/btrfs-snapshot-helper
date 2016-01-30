@@ -1,0 +1,22 @@
+project :
+	requirements <variant>release:<define>LOG_LEVEL_DEBUG
+;
+
+install dist :
+	
+	btrfs-snapshot-helper
+
+;
+
+exe btrfs-snapshot-helper :
+
+	main.cpp
+
+	log_core.cpp
+
+	/project-config//boost_system
+	/project-config//boost_date_time
+	/project-config//boost_filesystem
+	/project-config//boost_program_options
+
+;

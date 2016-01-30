@@ -1,0 +1,8 @@
+project project-config ;
+
+using gcc : : : <cxxflags>-std=c++11 ;
+
+lib boost_system : : <name>boost_system ;
+lib boost_date_time : : <name>boost_date_time ;
+lib boost_filesystem : : <name>boost_filesystem ;
+lib boost_program_options : : <name>boost_program_options ;
