@@ -187,11 +187,12 @@ int main(int argc,char** argv)
 		};
 		
 		auto rm_fn = [&exec](const fs::path& p) {
-			exec(str(boost::format("btrfs subvolume delete %1%") % p));
+			exec(str(boost::format("/sbin/btrfs property set -ts %1% ro false") % p));
+			exec(str(boost::format("/sbin/btrfs subvolume delete %1%") % p));
 		};
 	
 		auto create_fn = [&exec](const fs::path& p,const fs::path& d) {
-			exec(str(boost::format("btrfs subvolume snapshot -r %1% %2%")%p%d));
+			exec(str(boost::format("/sbin/btrfs subvolume snapshot -r %1% %2%")%p%d));
 		};
 	
 		std::string strategy_name(ovm["strategy"].as<std::string>());
