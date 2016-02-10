@@ -1,6 +1,11 @@
 project :
-	requirements <variant>release:<define>LOG_LEVEL_DEBUG
+	requirements
+		<variant>release:<define>LOG_LEVEL_DEBUG
+		#<variant>release:<link>static
 ;
+
+# example for build:
+# > b2 -j8 release link=static
 
 install dist :
 	
