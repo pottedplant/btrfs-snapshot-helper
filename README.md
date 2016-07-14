@@ -13,7 +13,7 @@ Requirements:
 b2 -j8 release link=static
 ```
 
-> link=static is not strictly needed
+> link=static is not strictly needed and requires static version of boost libraries to be installed
 
 ## Usage
 
