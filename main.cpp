@@ -1,4 +1,5 @@
 #include <map>
+#include <memory>
 #include <iostream>
 #include <functional>
 
@@ -14,11 +15,15 @@ typedef boost::posix_time::ptime datetime_t;
 namespace fs = boost::filesystem;
 
 typedef std::function<void(const fs::path&)> snapshot_rm_fn;
+typedef std::function<datetime_t(const datetime_t&)> slotter_fn;
 
 struct strategy
 {
+	virtual ~strategy() {}
 	virtual void push(const fs::path&,const datetime_t&) = 0;
 	virtual bool create_snapshot(const datetime_t&) = 0;
+
+	typedef std::shared_ptr<strategy> ptr;
 };
 
 struct now_strategy : strategy
@@ -56,10 +61,9 @@ struct now_strategy : strategy
 
 };
 
-struct once_per_day_strategy : strategy
+struct once_per_base : strategy
 {
-	static constexpr const char* LOG_C = "once-per-day-strategy";
-
+	const char* log_c;
 	size_t max_snapshots;
 	snapshot_rm_fn rm_fn;
 
@@ -67,17 +71,13 @@ struct once_per_day_strategy : strategy
 	typedef std::map<datetime_t,std::pair<datetime_t,fs::path>> slots_type;
 	slots_type slots;
 
-	once_per_day_strategy(size_t max_snapshots,const snapshot_rm_fn& rm_fn)
-	: max_snapshots(max_snapshots), rm_fn(rm_fn)
+	once_per_base(const char* log_c,size_t max_snapshots,const snapshot_rm_fn& rm_fn)
+	: log_c(log_c)
+	, max_snapshots(max_snapshots)
+	, rm_fn(rm_fn)
 	{}
 
-	datetime_t slotter(const datetime_t& t)
-	{
-		return datetime_t(t.date(),boost::posix_time::hours(0));
-
-		//auto d(t.time_of_day());
-		//return datetime_t(t.date(),boost::posix_time::time_duration(d.hours(),d.minutes(),(d.seconds()/5)*5));
-	}
+	virtual datetime_t slotter(const datetime_t& t) = 0;
 
 	void push(const fs::path& p,const datetime_t& t)
 	{
@@ -102,7 +102,7 @@ struct once_per_day_strategy : strategy
 				i->second = std::make_pair(t,p);
 			}
 
-			LOG_S(info,LOG_C) << "removing superfluous snapshot '" << snapshot << "'";
+			LOG_S(info,log_c) << "removing superfluous snapshot '" << snapshot << "'";
 			rm_fn(snapshot);
 		}
 
@@ -111,7 +111,7 @@ struct once_per_day_strategy : strategy
 			auto i(slots.begin());
 			fs::path snapshot( i->second.second );
 
-			LOG_S(info,LOG_C) << "removing superfluous snapshot '" << snapshot << "'";
+			LOG_S(info,log_c) << "removing superfluous snapshot '" << snapshot << "'";
 			rm_fn(snapshot);
 
 			slots.erase(i);
@@ -127,6 +127,21 @@ struct once_per_day_strategy : strategy
 	}
 };
 
+struct once_per_slotter_fn : once_per_base
+{
+	slotter_fn slotter_;
+
+	once_per_slotter_fn(const char* log_c,size_t max_snapshots,const slotter_fn& slotter_,const snapshot_rm_fn& rm_fn)
+	: once_per_base(log_c,max_snapshots,rm_fn) {}
+
+	datetime_t slotter(const datetime_t& t) { return slotter_(t); }
+
+};
+
+// once per day
+
+slotter_fn slotter_once_per_day = [](const datetime_t& t){ return datetime_t(t.date(),boost::posix_time::hours(0)); };
+strategy::ptr make_once_per_day(size_t max_snapshots,const snapshot_rm_fn& rm_fn) { return std::make_shared<once_per_slotter_fn>("strategy-once-per-day",max_snapshots,slotter_once_per_day,rm_fn); }
 
 int main(int argc,char** argv)
 {
@@ -198,11 +213,11 @@ int main(int argc,char** argv)
 		std::string strategy_name(ovm["strategy"].as<std::string>());
 		size_t max_snapshots(ovm["max-snapshots"].as<size_t>());
 
-		strategy* s;
+		strategy::ptr s;
 		if( strategy_name=="now" )
-			s = new now_strategy( max_snapshots, rm_fn );
+			s = std::make_shared<now_strategy>( max_snapshots, rm_fn );
 		else if( strategy_name=="once-per-day" )
-			s = new once_per_day_strategy( max_snapshots, rm_fn );
+			s = make_once_per_day( max_snapshots, rm_fn );
 		else
 			throw std::runtime_error(str(boost::format("no strategy named '%1%' available")%strategy_name));
 	
