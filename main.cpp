@@ -132,7 +132,7 @@ struct once_per_slotter_fn : once_per_base
 	slotter_fn slotter_;
 
 	once_per_slotter_fn(const char* log_c,size_t max_snapshots,const slotter_fn& slotter_,const snapshot_rm_fn& rm_fn)
-	: once_per_base(log_c,max_snapshots,rm_fn) {}
+	: once_per_base(log_c,max_snapshots,rm_fn),slotter_(slotter_) {}
 
 	datetime_t slotter(const datetime_t& t) { return slotter_(t); }
 
@@ -142,6 +142,11 @@ struct once_per_slotter_fn : once_per_base
 
 slotter_fn slotter_once_per_day = [](const datetime_t& t){ return datetime_t(t.date(),boost::posix_time::hours(0)); };
 strategy::ptr make_once_per_day(size_t max_snapshots,const snapshot_rm_fn& rm_fn) { return std::make_shared<once_per_slotter_fn>("strategy-once-per-day",max_snapshots,slotter_once_per_day,rm_fn); }
+
+// every hour
+
+slotter_fn slotter_every_hour = [](const datetime_t& t){ return datetime_t(t.date(),boost::posix_time::hours(t.time_of_day().hours())); };
+strategy::ptr make_every_hour(size_t max_snapshots,const snapshot_rm_fn& rm_fn) { return std::make_shared<once_per_slotter_fn>("strategy-every-hour",max_snapshots,slotter_every_hour,rm_fn); }
 
 int main(int argc,char** argv)
 {
@@ -159,7 +164,7 @@ int main(int argc,char** argv)
 			("help,h","show help")
 			("subvolume,v",po::value<std::string>()->value_name("path")->required(),"source subvolume to take snapshot of")
 			("snapshots-dir,d",po::value<std::string>()->value_name("path")->required(),"snapshot storage directory")
-			("strategy,s",po::value<std::string>()->value_name("name")->required(),"now,once-per-day")
+			("strategy,s",po::value<std::string>()->value_name("name")->required(),"now,once-per-day,every-hour")
 			("max-snapshots,m",po::value<size_t>()->value_name("number")->default_value(0),"use 0 for unlimited")
 			("log-level,l",po::value<std::string>()->value_name("level")->default_value("warn"))
 		;
@@ -214,10 +219,9 @@ int main(int argc,char** argv)
 		size_t max_snapshots(ovm["max-snapshots"].as<size_t>());
 
 		strategy::ptr s;
-		if( strategy_name=="now" )
-			s = std::make_shared<now_strategy>( max_snapshots, rm_fn );
-		else if( strategy_name=="once-per-day" )
-			s = make_once_per_day( max_snapshots, rm_fn );
+		if( strategy_name=="now" ) s = std::make_shared<now_strategy>( max_snapshots, rm_fn );
+		else if( strategy_name=="once-per-day" ) s = make_once_per_day( max_snapshots, rm_fn );
+		else if( strategy_name=="every-hour" ) s = make_every_hour( max_snapshots, rm_fn );
 		else
 			throw std::runtime_error(str(boost::format("no strategy named '%1%' available")%strategy_name));
 	
