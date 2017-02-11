@@ -24,4 +24,7 @@ exe btrfs-snapshot-helper :
 	/project-config//boost_filesystem
 	/project-config//boost_program_options
 
+	:
+		<link>static
+
 ;
